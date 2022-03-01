@@ -4,9 +4,6 @@
 
 #include "st7789.h"
 
-uint16_t height = 240;
-uint16_t width = 135;
-
 uint16_t _colstart = 0, _rowstart = 0, _colstart2 = 0, _rowstart2 = 0;
 
 uint8_t tabcolor;
@@ -21,6 +18,17 @@ int16_t _xstart = 0; ///< Internal framebuffer X offset
 int16_t _ystart = 0; ///< Internal framebuffer Y offset
 
 uint8_t rotation;
+
+spi_inst_t *st7789_spi = spi_default;
+
+uint16_t st7789_pinCS = 17;
+uint16_t st7789_pinDC = 16;
+int16_t st7789_pinRST = -1;
+
+uint16_t st7789_pinSCK = PICO_DEFAULT_SPI_SCK_PIN;
+uint16_t st7789_pinTX = PICO_DEFAULT_SPI_TX_PIN;
+
+// uint16_t st7789_pinRST;
 
 static const uint8_t generic_st7789[] = { // Init commands for 7789 screens
 	9,									  //  9 commands in list:
@@ -60,74 +68,92 @@ void waitForDMA()
 }
 #endif
 
+void LCD_setPins(uint16_t dc, uint16_t cs, int16_t rst, uint16_t sck, uint16_t tx)
+{
+	st7789_pinDC = dc;
+	st7789_pinCS = cs;
+	st7789_pinRST = rst;
+	st7789_pinSCK = sck;
+	st7789_pinTX = tx;
+}
+
+void LCD_setSPIperiph(spi_inst_t *s)
+{
+	st7789_spi = s;
+}
+
 void initSPI()
 {
-	spi_init(spi_default, 1000 * 40000);
-	spi_set_format(spi_default, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
-	gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
-	gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
+	spi_init(st7789_spi, 1000 * 40000);
+	spi_set_format(st7789_spi, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	gpio_set_function(st7789_pinSCK, GPIO_FUNC_SPI);
+	gpio_set_function(st7789_pinTX, GPIO_FUNC_SPI);
 
-	gpio_init(ST7789_CS);
-	gpio_set_dir(ST7789_CS, GPIO_OUT);
-	gpio_put(ST7789_CS, 1);
+	gpio_init(st7789_pinCS);
+	gpio_set_dir(st7789_pinCS, GPIO_OUT);
+	gpio_put(st7789_pinCS, 1);
 
-	gpio_init(ST7789_DC);
-	gpio_set_dir(ST7789_DC, GPIO_OUT);
-	gpio_put(ST7789_DC, 1);
+	gpio_init(st7789_pinDC);
+	gpio_set_dir(st7789_pinDC, GPIO_OUT);
+	gpio_put(st7789_pinDC, 1);
 
-	/*
-	gpio_init(ST7789_RST);
-	gpio_set_dir(ST7789_RST, GPIO_OUT);
-	gpio_put(ST7789_RST, 1);
-*/
+	if (st7789_pinRST != -1)
+	{
+		gpio_init(st7789_pinRST);
+		gpio_set_dir(st7789_pinRST, GPIO_OUT);
+		gpio_put(st7789_pinRST, 1);
+	}
 
 #ifdef USE_DMA
 	dma_tx = dma_claim_unused_channel(true);
 	dma_cfg = dma_channel_get_default_config(dma_tx);
 	channel_config_set_transfer_data_size(&dma_cfg, DMA_SIZE_16);
-	channel_config_set_dreq(&dma_cfg, spi_get_dreq(spi_default, true));
+	channel_config_set_dreq(&dma_cfg, spi_get_dreq(st7789_spi, true));
 #endif
 }
 
 void ST7789_Reset()
 {
-	gpio_put(ST7789_RST, 0);
-	sleep_ms(5);
-	gpio_put(ST7789_RST, 1);
+	if (st7789_pinRST != -1)
+	{
+		gpio_put(st7789_pinRST, 0);
+		sleep_ms(5);
+		gpio_put(st7789_pinRST, 1);
+	}
 }
 
 void ST7789_Select()
 {
-	gpio_put(ST7789_CS, 0);
+	gpio_put(st7789_pinCS, 0);
 }
 
 void ST7789_DeSelect()
 {
-	gpio_put(ST7789_CS, 1);
+	gpio_put(st7789_pinCS, 1);
 }
 
 void ST7789_RegCommand()
 {
-	gpio_put(ST7789_DC, 0);
+	gpio_put(st7789_pinDC, 0);
 }
 
 void ST7789_RegData()
 {
-	gpio_put(ST7789_DC, 1);
+	gpio_put(st7789_pinDC, 1);
 }
 
 void ST7789_WriteCommand(uint8_t cmd)
 {
 	ST7789_RegCommand();
-	spi_set_format(spi_default, 8, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
-	spi_write_blocking(spi_default, &cmd, sizeof(cmd));
+	spi_set_format(st7789_spi, 8, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	spi_write_blocking(st7789_spi, &cmd, sizeof(cmd));
 }
 
 void ST7789_WriteData(uint8_t *buff, size_t buff_size)
 {
 	ST7789_RegData();
-	spi_set_format(spi_default, 8, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
-	spi_write_blocking(spi_default, buff, buff_size);
+	spi_set_format(st7789_spi, 8, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	spi_write_blocking(st7789_spi, buff, buff_size);
 }
 
 void ST7789_SendCommand(uint8_t commandByte, uint8_t *dataBytes,
@@ -208,7 +234,7 @@ void LCD_setRotation(uint8_t m)
 	ST7789_SendCommand(ST77XX_MADCTL, &madctl, 1);
 }
 
-void LCD_initDisplay()
+void LCD_initDisplay(uint16_t width, uint16_t height)
 {
 
 	initSPI();
@@ -247,12 +273,12 @@ void LCD_initDisplay()
 	windowWidth = width;
 	windowHeight = height;
 	ST7789_Select();
-	// ST7789_Reset();
+	ST7789_Reset();
 	ST7789_displayInit(generic_st7789);
 	LCD_setRotation(2);
 }
 
-void ST7789_setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+void LCD_setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
 
 	x += _xstart;
@@ -278,19 +304,19 @@ void ST7789_setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 void LCD_WriteBitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *bitmap)
 {
 	ST7789_Select();
-	ST7789_setAddrWindow(x, y, w, h); // Clipped area
+	LCD_setAddrWindow(x, y, w, h); // Clipped area
 	ST7789_RegData();
-	spi_set_format(spi_default, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	spi_set_format(st7789_spi, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
 #ifdef USE_DMA
 	dma_channel_configure(dma_tx, &dma_cfg,
-						  &spi_get_hw(spi_default)->dr, // write address
-						  bitmap,						// read address
-						  w * h,					// element count (each element is of size transfer_data_size)
-						  true);						// start asap
+						  &spi_get_hw(st7789_spi)->dr, // write address
+						  bitmap,					   // read address
+						  w * h,					   // element count (each element is of size transfer_data_size)
+						  true);					   // start asap
 	waitForDMA();
 #else
 
-	spi_write16_blocking(spi_default, bitmap, w * h);
+	spi_write16_blocking(st7789_spi, bitmap, w * h);
 #endif
 
 	ST7789_DeSelect();
@@ -299,9 +325,9 @@ void LCD_WriteBitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *b
 void LCD_WritePixel(int x, int y, uint16_t col)
 {
 	ST7789_Select();
-	ST7789_setAddrWindow(x, y, 1, 1); // Clipped area
+	LCD_setAddrWindow(x, y, 1, 1); // Clipped area
 	ST7789_RegData();
-	spi_set_format(spi_default, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
-	spi_write16_blocking(spi_default, &col, 1);
+	spi_set_format(st7789_spi, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	spi_write16_blocking(st7789_spi, &col, 1);
 	ST7789_DeSelect();
 }

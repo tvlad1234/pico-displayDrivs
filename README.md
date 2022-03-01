@@ -20,7 +20,7 @@ By default, the GFX library writes pixels directly to the screen. If desired, an
 ### GFX Library Reference
 `GFX_drawPixel(int16_t x, int16_t y, uint16_t color);` draws a single pixel\
 `GFX_drawChar(int16_t x, int16_t y, unsigned char c, uint16_t color,
-                          uint16_t bg, uint8_t size_x, uint8_t size_y);` puts a single character on screen
+                          uint16_t bg, uint8_t size_x, uint8_t size_y);` puts a single character on screen\
 `GFX_write(uint8_t c);` writes a character to the screen, handling the cursor position and text wrapping automatically\
 `GFX_setCursor(int16_t x, int16_t y);` places the text cursor at the specified coordinates\
 `GFX_setTextColor(uint16_t color);` sets the text color\

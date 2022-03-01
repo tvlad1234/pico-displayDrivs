@@ -1,15 +1,10 @@
 #ifndef ST7789_H
 #define ST7789_H
 #include "pico/stdlib.h"
+#include "hardware/spi.h"
 
-
-//Pins
-#define ST7789_CS 17
-#define ST7789_RST -1
-#define ST7789_DC 16
-
-//Use DMA?
-#define USE_DMA 1
+// Use DMA?
+//#define USE_DMA 1
 
 #define ST_CMD_DELAY 0x80 // special signifier for command lists
 
@@ -60,16 +55,13 @@
 #define ST77XX_YELLOW 0xFFE0
 #define ST77XX_ORANGE 0xFC00
 
-void initSPI();
+void LCD_setPins(uint16_t dc, uint16_t cs, int16_t rst, uint16_t sck, uint16_t tx);
+void LCD_setSPIperiph(spi_inst_t *s);
+void LCD_initDisplay(uint16_t width, uint16_t height);
 
 void LCD_setRotation(uint8_t m);
 
-//void ST7789_displayInit(const uint8_t *addr);
-
-void LCD_initDisplay();
-
-void ST7789_setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
-
-void LCD_WriteBitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *bitmap);
 void LCD_WritePixel(int x, int y, uint16_t col);
+void LCD_WriteBitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *bitmap);
+
 #endif
