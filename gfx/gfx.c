@@ -39,12 +39,12 @@ void GFX_setClearColor(uint16_t color)
 	clearColour = color;
 }
 
-void GFX_ClearScreen()
+void GFX_clearScreen()
 {
 	GFX_fillRect(0, 0, _width, _height, clearColour);
 }
 
-void GFX_FillScreen(uint16_t color)
+void GFX_fillScreen(uint16_t color)
 {
 	GFX_fillRect(0, 0, _width, _height, color);
 }
@@ -55,13 +55,13 @@ void GFX_drawPixel(int16_t x, int16_t y, uint16_t color)
 	{
 		if ((x < 0) || (y < 0) || (x >= _width) || (y >= _height))
 			return;
-		gfxFramebuffer[x + y * _width] = (color >> 8) | (color << 8);
+		gfxFramebuffer[x + y * _width] = color ; //(color >> 8) | (color << 8);
 	}
 	else
 		LCD_WritePixel(x, y, color);
 }
 
-void GFX_writeLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color)
+void GFX_drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color)
 {
 
 	int16_t steep = abs(y1 - y0) > abs(x1 - x0);
@@ -112,17 +112,30 @@ void GFX_writeLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t colo
 	}
 }
 
+void GFX_drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color)
+{
+	GFX_drawLine(x, y, x, y + h - 1, color);
+}
+
+void GFX_drawFastHLine(int16_t x, int16_t y, int16_t l, uint16_t color)
+{
+	GFX_drawLine(x, y, x + l - 1, y, color);
+}
+
 void GFX_fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 {
 	for (int16_t i = x; i < x + w; i++)
 	{
-		GFX_writeFastVLine(i, y, h, color);
+		GFX_drawFastVLine(i, y, h, color);
 	}
 }
 
-void GFX_writeFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color)
+void GFX_drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 {
-	GFX_writeLine(x, y, x, y + h - 1, color);
+	GFX_drawFastHLine(x, y, w, color);
+	GFX_drawFastHLine(x, y + h - 1, w, color);
+	GFX_drawFastVLine(x, y, h, color);
+	GFX_drawFastVLine(x + w - 1, y, h, color);
 }
 
 void GFX_drawChar(int16_t x, int16_t y, unsigned char c, uint16_t color,
@@ -166,7 +179,7 @@ void GFX_drawChar(int16_t x, int16_t y, unsigned char c, uint16_t color,
 		if (bg != color)
 		{ // If opaque, draw vertical line for last column
 			if (size_x == 1 && size_y == 1)
-				GFX_writeFastVLine(x + 5, y, 8, bg);
+				GFX_drawFastVLine(x + 5, y, 8, bg);
 			else
 				GFX_fillRect(x + 5 * size_x, y, size_x, 8 * size_y, bg);
 		}
@@ -338,16 +351,16 @@ void fillCircleHelper(int16_t x0, int16_t y0, int16_t r,
 		if (x < (y + 1))
 		{
 			if (corners & 1)
-				GFX_writeFastVLine(x0 + x, y0 - y, 2 * y + delta, color);
+				GFX_drawFastVLine(x0 + x, y0 - y, 2 * y + delta, color);
 			if (corners & 2)
-				GFX_writeFastVLine(x0 - x, y0 - y, 2 * y + delta, color);
+				GFX_drawFastVLine(x0 - x, y0 - y, 2 * y + delta, color);
 		}
 		if (y != py)
 		{
 			if (corners & 1)
-				GFX_writeFastVLine(x0 + py, y0 - px, 2 * px + delta, color);
+				GFX_drawFastVLine(x0 + py, y0 - px, 2 * px + delta, color);
 			if (corners & 2)
-				GFX_writeFastVLine(x0 - py, y0 - px, 2 * px + delta, color);
+				GFX_drawFastVLine(x0 - py, y0 - px, 2 * px + delta, color);
 			py = y;
 		}
 		px = x;
@@ -358,12 +371,49 @@ void GFX_fillCircle(int16_t x0, int16_t y0, int16_t r,
 					uint16_t color)
 {
 
-	GFX_writeFastVLine(x0, y0 - r, 2 * r + 1, color);
+	GFX_drawFastVLine(x0, y0 - r, 2 * r + 1, color);
 	fillCircleHelper(x0, y0, r, 3, 0, color);
 }
 
-char printBuf[100];
+void GFX_drawCircle(int16_t x0, int16_t y0, int16_t r,
+					uint16_t color)
+{
 
+	int16_t f = 1 - r;
+	int16_t ddF_x = 1;
+	int16_t ddF_y = -2 * r;
+	int16_t x = 0;
+	int16_t y = r;
+
+	GFX_drawPixel(x0, y0 + r, color);
+	GFX_drawPixel(x0, y0 - r, color);
+	GFX_drawPixel(x0 + r, y0, color);
+	GFX_drawPixel(x0 - r, y0, color);
+
+	while (x < y)
+	{
+		if (f >= 0)
+		{
+			y--;
+			ddF_y += 2;
+			f += ddF_y;
+		}
+		x++;
+		ddF_x += 2;
+		f += ddF_x;
+
+		GFX_drawPixel(x0 + x, y0 + y, color);
+		GFX_drawPixel(x0 - x, y0 + y, color);
+		GFX_drawPixel(x0 + x, y0 - y, color);
+		GFX_drawPixel(x0 - x, y0 - y, color);
+		GFX_drawPixel(x0 + y, y0 + x, color);
+		GFX_drawPixel(x0 - y, y0 + x, color);
+		GFX_drawPixel(x0 + y, y0 - x, color);
+		GFX_drawPixel(x0 - y, y0 - x, color);
+	}
+}
+
+char printBuf[100];
 void printString(char s[])
 {
 	uint8_t n = strlen(s);
@@ -390,7 +440,7 @@ void GFX_destroyFramebuf()
 	gfxFramebuffer = NULL;
 }
 
-void GFX_Flush()
+void GFX_flush()
 {
 	if (gfxFramebuffer != NULL)
 		LCD_WriteBitmap(0, 0, _width, _height, gfxFramebuffer);
