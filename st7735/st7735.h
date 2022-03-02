@@ -1,6 +1,7 @@
 #ifndef ST7735_H
 #define ST7735_H
 #include "pico/stdlib.h"
+#include "hardware/spi.h"
 
 // Pins
 #define ST7735_CS PICO_DEFAULT_SPI_CSN_PIN
@@ -97,15 +98,11 @@
 #define ST77XX_YELLOW 0xFFE0
 #define ST77XX_ORANGE 0xFC00
 
-void initSPI();
-
-void LCD_setRotation(uint8_t m);
-
-// void ST7735_displayInit(const uint8_t *addr);
-
+void LCD_setPins(uint16_t dc, uint16_t cs, int16_t rst, uint16_t sck, uint16_t tx);
+void LCD_setSPIperiph(spi_inst_t *s);
 void LCD_initDisplay(uint8_t options);
 
-// void ST7735_setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+void LCD_setRotation(uint8_t m);
 
 void LCD_WriteBitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *bitmap);
 void LCD_WritePixel(int x, int y, uint16_t col);

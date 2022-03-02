@@ -16,6 +16,15 @@ int16_t _ystart = 0; ///< Internal framebuffer Y offset
 
 uint8_t rotation;
 
+spi_inst_t *st7735_spi = spi_default;
+
+uint16_t st7735_pinCS = PICO_DEFAULT_SPI_CSN_PIN;
+uint16_t st7735_pinDC = 20;
+int16_t st7735_pinRST = 16;
+
+uint16_t st7735_pinSCK = PICO_DEFAULT_SPI_SCK_PIN;
+uint16_t st7735_pinTX = PICO_DEFAULT_SPI_TX_PIN;
+
 const uint8_t Bcmd[] = {			  // Init commands for 7735B screens
 	18,								  // 18 commands in list:
 	ST77XX_SWRESET, ST_CMD_DELAY,	  //  1: Software reset, no args, w/delay
@@ -165,72 +174,92 @@ void waitForDMA()
 }
 #endif
 
+void LCD_setPins(uint16_t dc, uint16_t cs, int16_t rst, uint16_t sck, uint16_t tx)
+{
+	st7735_pinDC = dc;
+	st7735_pinCS = cs;
+	st7735_pinRST = rst;
+	st7735_pinSCK = sck;
+	st7735_pinTX = tx;
+}
+
+void LCD_setSPIperiph(spi_inst_t *s)
+{
+	st7735_spi = s;
+}
+
 void initSPI()
 {
-	spi_init(spi_default, 1000 * 50000);
-	spi_set_format(spi_default, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	spi_init(st7735_spi, 1000 * 50000);
+	spi_set_format(st7735_spi, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
 	gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
 	gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
 
-	gpio_init(ST7735_CS);
-	gpio_set_dir(ST7735_CS, GPIO_OUT);
-	gpio_put(ST7735_CS, 1);
+	gpio_init(st7735_pinCS);
+	gpio_set_dir(st7735_pinCS, GPIO_OUT);
+	gpio_put(st7735_pinCS, 1);
 
-	gpio_init(ST7735_DC);
-	gpio_set_dir(ST7735_DC, GPIO_OUT);
-	gpio_put(ST7735_DC, 1);
+	gpio_init(st7735_pinDC);
+	gpio_set_dir(st7735_pinDC, GPIO_OUT);
+	gpio_put(st7735_pinDC, 1);
 
-	gpio_init(ST7735_RST);
-	gpio_set_dir(ST7735_RST, GPIO_OUT);
-	gpio_put(ST7735_RST, 1);
+	if (st7735_pinRST != -1)
+	{
+		gpio_init(st7735_pinRST);
+		gpio_set_dir(st7735_pinRST, GPIO_OUT);
+		gpio_put(st7735_pinRST, 1);
+	}
 
 #ifdef USE_DMA
 	dma_tx = dma_claim_unused_channel(true);
 	dma_cfg = dma_channel_get_default_config(dma_tx);
 	channel_config_set_transfer_data_size(&dma_cfg, DMA_SIZE_16);
-	channel_config_set_dreq(&dma_cfg, spi_get_dreq(spi_default, true));
+	channel_config_set_dreq(&dma_cfg, spi_get_dreq(st7735_spi, true));
 #endif
 }
 
 void ST7735_Reset()
 {
-	gpio_put(ST7735_RST, 0);
-	sleep_ms(5);
-	gpio_put(ST7735_RST, 1);
+	if (st7735_pinRST != -1)
+	{
+		gpio_put(st7735_pinRST, 0);
+		sleep_ms(5);
+		gpio_put(st7735_pinRST, 1);
+	}
 }
 
 void ST7735_Select()
 {
-	gpio_put(ST7735_CS, 0);
+	gpio_put(st7735_pinCS, 0);
 }
 
 void ST7735_DeSelect()
 {
-	gpio_put(ST7735_CS, 1);
+	gpio_put(st7735_pinCS, 1);
 }
 
 void ST7735_RegCommand()
 {
-	gpio_put(ST7735_DC, 0);
+	gpio_put(st7735_pinDC, 0);
 }
 
 void ST7735_RegData()
 {
-	gpio_put(ST7735_DC, 1);
+	gpio_put(st7735_pinDC, 1);
 }
 
 void ST7735_WriteCommand(uint8_t cmd)
 {
 	ST7735_RegCommand();
-	spi_set_format(spi_default, 8, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
-	spi_write_blocking(spi_default, &cmd, sizeof(cmd));
+	spi_set_format(st7735_spi, 8, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	spi_write_blocking(st7735_spi, &cmd, sizeof(cmd));
 }
 
 void ST7735_WriteData(uint8_t *buff, size_t buff_size)
 {
 	ST7735_RegData();
-	spi_set_format(spi_default, 8, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
-	spi_write_blocking(spi_default, buff, buff_size);
+	spi_set_format(st7735_spi, 8, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	spi_write_blocking(st7735_spi, buff, buff_size);
 }
 
 void ST7735_SendCommand(uint8_t commandByte, uint8_t *dataBytes,
@@ -490,17 +519,17 @@ void LCD_WriteBitmap(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *b
 	ST7735_Select();
 	ST7735_setAddrWindow(x, y, w, h); // Clipped area
 	ST7735_RegData();
-	spi_set_format(spi_default, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	spi_set_format(st7735_spi, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
 #ifdef USE_DMA
 	dma_channel_configure(dma_tx, &dma_cfg,
-						  &spi_get_hw(spi_default)->dr, // write address
-						  bitmap,						// read address
-						  w * h,						// element count (each element is of size transfer_data_size)
-						  true);						// start asap
+						  &spi_get_hw(st7735_spi)->dr, // write address
+						  bitmap,					   // read address
+						  w * h,					   // element count (each element is of size transfer_data_size)
+						  true);					   // start asap
 	waitForDMA();
 #else
 
-	spi_write16_blocking(spi_default, bitmap, w * h);
+	spi_write16_blocking(st7735_spi, bitmap, w * h);
 #endif
 
 	ST7735_DeSelect();
@@ -511,7 +540,7 @@ void LCD_WritePixel(int x, int y, uint16_t col)
 	ST7735_Select();
 	ST7735_setAddrWindow(x, y, 1, 1); // Clipped area
 	ST7735_RegData();
-	spi_set_format(spi_default, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
-	spi_write16_blocking(spi_default, &col, 1);
+	spi_set_format(st7735_spi, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
+	spi_write16_blocking(st7735_spi, &col, 1);
 	ST7735_DeSelect();
 }
