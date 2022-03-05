@@ -2,7 +2,8 @@
 *Display driver library for RP2040 pico-sdk* \
 Example code [here](https://github.com/tvlad1234/pico-st7735Example)
 ## Supported display controllers:
-ST7735 and ST7739 in SPI mode
+ST7735 and ST7739 in SPI mode \
+ILI9341 in SPI mode
 
 ## Library usage
 Add the *pico-displayDrivs* subdirectory to the CMakeLists.txt of your project and include the needed libraries.
