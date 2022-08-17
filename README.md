@@ -15,6 +15,8 @@ Check the readme of each driver in its corresponding folder.
 This package includes a graphics library, based on [Adafruit-GFX-Library](https://github.com/adafruit/Adafruit-GFX-Library).
 It supports drawing basic shapes, characters and using custom fonts.
 
+Note that the `gfx.h` header contains a convenience macro `GFX_RGB565(R, G, B)` to create a 16-bit 'rgb565' colour value from individual 8-bit components.
+
 ### GFX Framebuffer
 By default, the GFX library writes pixels directly to the screen. If desired, an internal framebuffer can be used (which is recomended in cases where speed is desired). The framebuffer is created using `GFX_createFramebuf()`, which automatically tells the library to write to the framebuffer. The buffer can then be pushed to the screen by calling `GFX_flush()`. If needed, the buffer can be destroyed by calling `GFX_destroyFramebuf()`. Doing so will revert to writing pixels directly to the screen.
 ## GFX Library Reference
