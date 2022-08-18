@@ -4,6 +4,9 @@
 #include "pico/stdlib.h"
 #include "gfxfont.h"
 
+// convert 8 bit r, g, b values to 16 bit colour (rgb565 format) 
+#define GFX_RGB565(R, G, B) ((uint16_t)(((R) & 0b11111000) << 8) | (((G) & 0b11111100) << 3) | ((B) >> 3))
+
 void GFX_createFramebuf();
 void GFX_destroyFramebuf();
 
