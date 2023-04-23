@@ -24,6 +24,7 @@ static int memcpy_dma_chan;
 static bool gfx_dma_init = false;
 
 uint16_t *gfxFramebuffer = NULL;
+static bool gfxFbUpdated = false;
 
 extern uint16_t _width;	 ///< Display width as modified by current rotation
 extern uint16_t _height; ///< Display height as modified by current rotation
@@ -71,6 +72,7 @@ void GFX_drawPixel(int16_t x, int16_t y, uint16_t color)
 		if ((x < 0) || (y < 0) || (x >= _width) || (y >= _height))
 			return;
 		gfxFramebuffer[x + y * _width] = color; //(color >> 8) | (color << 8);
+		gfxFbUpdated = true;
 	}
 	else
 		LCD_WritePixel(x, y, color);
@@ -458,7 +460,16 @@ void GFX_destroyFramebuf()
 void GFX_flush()
 {
 	if (gfxFramebuffer != NULL)
+	{
 		LCD_WriteBitmap(0, 0, _width, _height, gfxFramebuffer);
+		gfxFbUpdated = false;
+	}
+}
+
+void GFX_Update()
+{
+	if(gfxFbUpdated)
+		GFX_flush();
 }
 
 void initGfxDmaChan()
