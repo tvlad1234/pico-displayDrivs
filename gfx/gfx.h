@@ -36,4 +36,7 @@ void GFX_fillCircle(int16_t x0, int16_t y0, int16_t r, uint16_t color);
 void GFX_printf(const char *format, ...);
 void GFX_flush();
 
+uint GFX_getWidth();
+uint GFX_getHeight();
+
 #endif

@@ -34,6 +34,16 @@ uint8_t wrap = 1;
 
 GFXfont *gfxFont = NULL;
 
+uint GFX_getWidth()
+{
+	return _width;
+}
+
+uint GFX_getHeight()
+{
+	return _height;
+}
+
 void GFX_setClearColor(uint16_t color)
 {
 	clearColour = color;
