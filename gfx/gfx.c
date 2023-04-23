@@ -6,6 +6,8 @@
 #include "font.h"
 #include "gfxfont.h"
 
+#include "hardware/dma.h"
+
 #ifndef swap
 #define swap(a, b)     \
 	{                  \
@@ -17,6 +19,9 @@
 
 #define GFX_BLACK 0x0000
 #define GFX_WHITE 0xFFFF
+
+static int memcpy_dma_chan;
+static bool gfx_dma_init = false;
 
 uint16_t *gfxFramebuffer = NULL;
 
@@ -65,7 +70,7 @@ void GFX_drawPixel(int16_t x, int16_t y, uint16_t color)
 	{
 		if ((x < 0) || (y < 0) || (x >= _width) || (y >= _height))
 			return;
-		gfxFramebuffer[x + y * _width] = color ; //(color >> 8) | (color << 8);
+		gfxFramebuffer[x + y * _width] = color; //(color >> 8) | (color << 8);
 	}
 	else
 		LCD_WritePixel(x, y, color);
@@ -454,4 +459,77 @@ void GFX_flush()
 {
 	if (gfxFramebuffer != NULL)
 		LCD_WriteBitmap(0, 0, _width, _height, gfxFramebuffer);
+}
+
+void initGfxDmaChan()
+{
+	if (!gfx_dma_init)
+	{
+		memcpy_dma_chan = dma_claim_unused_channel(true);
+		gfx_dma_init = true;
+	}
+}
+
+void dma_memset(void *dest, uint8_t val, size_t num)
+{
+	initGfxDmaChan();
+
+    dma_channel_config c = dma_channel_get_default_config(memcpy_dma_chan);
+    channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
+    channel_config_set_read_increment(&c, false);
+    channel_config_set_write_increment(&c, true);
+
+    dma_channel_configure(
+        memcpy_dma_chan, // Channel to be configured
+        &c,              // The configuration we just created
+        dest,            // The initial write address
+        &val,            // The initial read address
+        num,             // Number of transfers; in this case each is 1 byte.
+        true             // Start immediately.
+    );
+
+    // We could choose to go and do something else whilst the DMA is doing its
+    // thing. In this case the processor has nothing else to do, so we just
+    // wait for the DMA to finish.
+    dma_channel_wait_for_finish_blocking(memcpy_dma_chan);
+}
+
+void dma_memcpy(void *dest, void *src, size_t num)
+{
+	initGfxDmaChan();
+
+    dma_channel_config c = dma_channel_get_default_config(memcpy_dma_chan);
+    channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
+    channel_config_set_read_increment(&c, true);
+    channel_config_set_write_increment(&c, true);
+
+    dma_channel_configure(
+        memcpy_dma_chan, // Channel to be configured
+        &c,              // The configuration we just created
+        dest,            // The initial write address
+        src,             // The initial read address
+        num,             // Number of transfers; in this case each is 1 byte.
+        true             // Start immediately.
+    );
+
+    // We could choose to go and do something else whilst the DMA is doing its
+    // thing. In this case the processor has nothing else to do, so we just
+    // wait for the DMA to finish.
+    dma_channel_wait_for_finish_blocking(memcpy_dma_chan);
+}
+
+void GFX_scrollUp(int n)
+{	
+	if (gfxFramebuffer)
+	{
+		if(n > _height)
+			n = _height;
+		uint16_t *src = gfxFramebuffer + (_width * n);
+		size_t linesCopy  = _width* (_height - n);
+		size_t linesFill = _width * n;
+	
+		dma_memcpy(gfxFramebuffer, src, 2* linesCopy);
+		dma_memset(gfxFramebuffer+linesCopy, 0, 2* linesFill);
+
+	}
 }
