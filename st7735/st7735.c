@@ -192,8 +192,8 @@ void initSPI()
 {
 	spi_init(st7735_spi, 1000 * 50000);
 	spi_set_format(st7735_spi, 16, SPI_CPOL_1, SPI_CPOL_1, SPI_MSB_FIRST);
-	gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
-	gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
+	gpio_set_function(st7735_pinTX, GPIO_FUNC_SPI);
+	gpio_set_function(st7735_pinSCK, GPIO_FUNC_SPI);
 
 	gpio_init(st7735_pinCS);
 	gpio_set_dir(st7735_pinCS, GPIO_OUT);
